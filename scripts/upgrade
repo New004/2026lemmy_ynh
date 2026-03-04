@@ -1,0 +1,168 @@
+#!/bin/bash
+
+source _common.sh
+source /usr/share/yunohost/helpers
+
+#=================================================
+# STOP SYSTEMD SERVICE
+#=================================================
+ynh_script_progression "Stopping $app's systemd service..."
+
+ynh_systemctl --service=$app --action="stop"
+
+ynh_systemctl --service=$app-ui --action="stop" --log_path="/var/log/$app/$app-ui.log"
+ynh_systemctl --service=$app-pict-rs --action="stop" --log_path="/var/log/$app/$app-pict-rs.log"
+
+#=================================================
+# ENSURE DOWNWARD COMPATIBILITY
+#=================================================
+ynh_script_progression "Ensuring downward compatibility..."
+
+# Removing previously installed iframely
+if ynh_hide_warnings yunohost service status $app-iframely >/dev/null
+then
+	ynh_script_progression "Removing $app-iframely service integration..."
+	yunohost service remove $app-iframely
+	ynh_app_setting_delete  --key=random
+	ynh_app_setting_delete  --key=port_iframely
+	ynh_config_remove_systemd$app-iframely
+fi
+
+#=================================================
+# UPGRADE DEPENDENCIES
+#=================================================
+ynh_script_progression "Upgrading dependencies..."
+
+ln -fs /usr/lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1
+
+#=================================================
+# CREATE EXTENSION IF NOT EXISTS pgcrypto
+#=================================================
+ynh_script_progression "Creating pgcrypto extension if needed..."
+
+ynh_psql_db_shell <<< "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+#=================================================
+# DOWNLOAD, CHECK AND UNPACK SOURCE
+#=================================================
+ynh_script_progression "Upgrading source files..."
+
+# Download, check integrity, uncompress the source of lemmy from app.src to his build directory
+ynh_safe_rm "$install_dir/lemmy-ui"
+ynh_setup_source --dest_dir="$install_dir/build-lemmy/" --source_id="lemmy"
+ynh_setup_source --dest_dir="$install_dir/build-lemmy-ui/" --source_id="lemmy-ui"
+ynh_setup_source --dest_dir="$install_dir/lemmy-ui/lemmy-translations/" --source_id="lemmy-translations"  --full_replace
+ynh_setup_source --dest_dir="$install_dir/build-pict-rs/" --source_id="pict-rs"
+
+#chmod -R o-rwx "$install_dir"
+#chown -R $app:$app "$install_dir"
+
+#=================================================
+# NGINX CONFIGURATION
+#=================================================
+ynh_script_progression "Upgrading NGINX web server configuration..."
+
+# Create a dedicated NGINX config
+ynh_config_add_nginx
+
+#=================================================
+# MAKE UPGRADE
+#=================================================
+ynh_script_progression "Making upgrade..."
+
+# Install lemmy-ui
+mkdir -p "$install_dir/lemmy-ui/"
+rsync -a "$install_dir/build-lemmy-ui/app/" "$install_dir/lemmy-ui/"
+ynh_safe_rm "$install_dir/build-lemmy-ui"
+
+# Install lemmy
+mkdir -p "$install_dir/lemmy/"
+mv -f "$install_dir/build-lemmy/usr/local/bin/lemmy_server" "$install_dir/lemmy/lemmy"
+ynh_safe_rm "$install_dir/build-lemmy"
+
+# Install pict-rs
+mkdir -p "$install_dir/pict-rs/"
+mv -f "$install_dir/build-pict-rs/usr/local/bin/pict-rs" "$install_dir/pict-rs/pict-rs"
+ynh_safe_rm "$install_dir/build-pict-rs"
+
+# (Dirty) Install ImageMagick
+# Requires 'libfuse2' and 'libimage-exiftool-perl' apt dependencies
+ynh_script_progression "Downloading and installing ImageMagick..."
+download_and_install_appimage --name="magick" --url="https://imagemagick.org/archive/binaries/magick" --directory="$install_dir/pict-rs" --symlink="$install_dir/pict-rs/magick"
+
+#chmod 750 "$install_dir"
+#chmod -R o-rwx "$install_dir"
+#chown -R $app:$app "$install_dir"
+
+#=================================================
+# UPDATE A CONFIG FILE
+#=================================================
+ynh_script_progression "Updating configuration..."
+
+# Lemmy configuration
+mkdir -p "$install_dir/config/"
+ynh_config_add --template="lemmy-upgrade.hjson" --destination="$install_dir/config/config.hjson"
+#chmod 400 "$install_dir/config/config.hjson"
+#chown $app:$app "$install_dir/config/config.hjson"
+
+# Pict-RS configuration
+ynh_config_add --template="pict-rs.toml" --destination="$install_dir/pict-rs/pict-rs.toml"
+chmod 400 "$install_dir/pict-rs/pict-rs.toml"
+chown $app:$app "$install_dir/pict-rs/pict-rs.toml"
+
+# ImageMagick configuration
+mkdir -p "$install_dir/.config/ImageMagick"
+ynh_config_add --template="policy.xml" --destination="$install_dir/.config/ImageMagick/policy.xml"
+#chmod 400 "$install_dir/.config/ImageMagick/policy.xml"
+chown -R $app:$app "$install_dir/.config"
+
+#=================================================
+# SETUP SYSTEMD
+#=================================================
+ynh_script_progression "Upgrading systemd configuration..."
+
+# Prep local path for Pict-RS
+pictrs_path="$install_dir/pict-rs:$PATH"
+
+# Create a dedicated systemd config
+ynh_config_add_systemd  --template="lemmy.service"
+ynh_config_add_systemd --service="$app-ui" --template="lemmy-ui.service"
+ynh_config_add_systemd --service="$app-pict-rs" --template="pict-rs.service"
+
+#=================================================
+# SETUP LOGROTATE
+#=================================================
+ynh_script_progression "Upgrading logrotate configuration..."
+
+mkdir -p "/var/log/$app"
+#chmod 750 "/var/log/$app"
+#chmod -R o-rwx "/var/log/$app"
+#chown -R $app:$app "/var/log/$app"
+
+# Use logrotate to manage app-specific logfile(s)
+ynh_config_add_logrotate
+
+#=================================================
+# INTEGRATE SERVICE IN YUNOHOST
+#=================================================
+ynh_script_progression "Integrating service in YunoHost..."
+
+yunohost service add $app --description="Link aggregator/Reddit clone" --log="/var/log/$app/$app.log"
+yunohost service add $app-ui --description="Link aggregator/Reddit clone" --log="/var/log/$app/$app-ui.log"
+yunohost service add $app-pict-rs --description="Simple image hosting service for Lemmy" --log="/var/log/$app/$app-pict-rs.log"
+
+#=================================================
+# START SYSTEMD SERVICE
+#=================================================
+ynh_script_progression "Starting $app's systemd service..."
+
+# Start a systemd service
+ynh_systemctl --service=$app --action="start"  --wait_until="Starting HTTP server at"
+ynh_systemctl --service=$app-ui --action="start" --log_path="/var/log/$app/$app-ui.log" --wait_until="http://0.0.0.0"
+ynh_systemctl --service=$app-pict-rs --action="start" --log_path="/var/log/$app/$app-pict-rs.log" --wait_until="starting in existing Tokio runtime"
+
+#=================================================
+# END OF SCRIPT
+#=================================================
+
+ynh_script_progression "Upgrade of $app completed"

@@ -1,0 +1,96 @@
+#!/bin/bash
+
+# Keep this path for calling _common.sh inside the execution's context of backup and restore scripts
+source ../settings/scripts/_common.sh
+source /usr/share/yunohost/helpers
+
+#=================================================
+# RESTORE THE APP MAIN DIR
+#=================================================
+ynh_script_progression "Restoring the app main directory..."
+
+ynh_restore "$install_dir"
+
+#=================================================
+# RESTORE THE DATA DIRECTORY
+#=================================================
+ynh_script_progression "Restoring the data directory..."
+
+ynh_restore "$data_dir"
+
+#=================================================
+# REINSTALL DEPENDENCIES
+#=================================================
+ynh_script_progression "Reinstalling dependencies..."
+
+ln -fs /usr/lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1
+
+#=================================================
+# RESTORE THE NGINX CONFIGURATION
+#=================================================
+ynh_script_progression "Restoring the NGINX web server configuration..."
+
+ynh_restore "/etc/nginx/conf.d/$domain.d/$app.conf"
+
+#=================================================
+# RESTORE THE POSTGRESQL DATABASE
+#=================================================
+ynh_script_progression "Restoring the PostgreSQL database..."
+
+ynh_psql_db_shell < ./db.sql
+ynh_psql_db_shell <<< "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+#=================================================
+# RESTORE SYSTEMD
+#=================================================
+ynh_script_progression "Restoring $app's systemd service..."
+
+ynh_restore "/etc/systemd/system/$app.service"
+systemctl enable $app.service --quiet
+ynh_restore "/etc/systemd/system/$app-ui.service"
+systemctl enable $app-ui.service --quiet
+ynh_restore "/etc/systemd/system/$app-pict-rs.service"
+systemctl enable $app-pict-rs.service --quiet
+
+#=================================================
+# RESTORE THE LOGROTATE CONFIGURATION
+#=================================================
+ynh_script_progression "Restoring the logrotate configuration..."
+
+mkdir -p "/var/log/$app"
+#chmod 750 "/var/log/$app"
+#chmod -R o-rwx "/var/log/$app"
+#chown -R $app:$app "/var/log/$app"
+
+ynh_restore "/etc/logrotate.d/$app"
+
+#=================================================
+# INTEGRATE SERVICE IN YUNOHOST
+#=================================================
+ynh_script_progression "Integrating service in YunoHost..."
+
+yunohost service add $app --description="Link aggregator/Reddit clone" --log="/var/log/$app/$app.log"
+yunohost service add $app-ui --description="Link aggregator/Reddit clone" --log="/var/log/$app/$app-ui.log"
+yunohost service add $app-pict-rs --description="Simple image hosting service for Lemmy" --log="/var/log/$app/$app-pict-rs.log"
+
+#=================================================
+# START SYSTEMD SERVICE
+#=================================================
+ynh_script_progression "Starting $app's systemd service..."
+
+ynh_systemctl --service=$app --action="start"  --wait_until="Starting HTTP server at"
+ynh_systemctl --service=$app-ui --action="start" --log_path="/var/log/$app/$app-ui.log" --wait_until="http://0.0.0.0"
+ynh_systemctl --service=$app-pict-rs --action="start" --log_path="/var/log/$app/$app-pict-rs.log" --wait_until="starting in existing Tokio runtime"
+
+#=================================================
+# RELOAD NGINX
+#=================================================
+ynh_script_progression "Reloading NGINX web server..."
+
+ynh_systemctl --service=nginx --action=reload
+
+#=================================================
+# END OF SCRIPT
+#=================================================
+
+ynh_script_progression "Restoration completed for $app"

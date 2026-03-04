@@ -1,0 +1,129 @@
+packaging_format = 2
+
+id = "lemmy"
+name = "Lemmy"
+description.en = "Link aggregator/Reddit clone for the fediverse"
+description.fr = "Agrégateur de liens/clone Reddit pour le fedivers"
+
+version = "0.19.11~ynh5"
+
+maintainers = []
+
+[upstream]
+license = "GPL-3.0"
+website = "https://join-lemmy.org/"
+demo = "https://lemmy.ml/"
+admindoc = "https://join-lemmy.org/docs/en/"
+code = "https://github.com/LemmyNet/lemmy"
+
+[integration]
+yunohost = ">= 12.1.38"
+helpers_version = "2.1"
+architectures = ["amd64", "arm64"]
+multi_instance = false
+
+ldap = false
+sso = false
+
+disk = "825M"
+ram.build = "262M"
+ram.runtime = "197M"
+
+[install]
+    [install.domain]
+    type = "domain"
+
+    [install.init_main_permission]
+    type = "group"
+    default = "visitors"
+
+    [install.admin]
+    type = "user"
+
+    [install.password]
+    type = "password"
+
+    [install.instance_name]
+    ask.en = "Choose a name for your Lemmy instance"
+    ask.fr = "Choisissez un nom pour votre instance Lemmy"
+    type = "string"
+    example = "My lemmy"
+    default = "My lemmy"
+
+[resources]
+    [resources.sources]
+
+    [resources.sources.lemmy]
+    format = "docker"
+    extract = true
+    prefetch = false
+    amd64.url = "dessalines/lemmy:0.19.11"
+    amd64.sha256 = "88dcd645150a33d42327650c2d08f87376d1c8f36c2e1865c917144c96b72147"
+    arm64.url = "dessalines/lemmy:0.19.11"
+    arm64.sha256 = "c4d4af08b1a0d1beda0b5d48ad384bfd49c8a1b87e7ba1ca486cd11dde659d62"
+
+    [resources.sources.lemmy-ui]
+    format = "docker"
+    extract = true
+    prefetch = false
+    amd64.url = "dessalines/lemmy-ui:0.19.11"
+    amd64.sha256 = "0659553273eda7b41395e0877fcba54a8f85ab4be8a402eb463d115113f580b6"
+    arm64.url = "dessalines/lemmy-ui:0.19.11"
+    arm64.sha256 = "555d73f78065d0c56796b9bccf24ff7106f44520244f50021edc8713ac770b73"
+
+    [resources.sources.pict-rs]
+    format = "docker"
+    extract = true
+    prefetch = false
+    amd64.url = "asonix/pictrs:0.5.17"
+    amd64.sha256 = "6536411492107baa1146fe577bd33c7f56c52baa323e38bae5c6e61806c7b09b"
+    arm64.url = "asonix/pictrs:0.5.17"
+    arm64.sha256 = "f143ec57573d1bf70ca7dbcdb30f63c4a0f24e91974a767a36189b83f0e0a43e"
+
+    [resources.sources.lemmy-translations]
+    url = "https://github.com/LemmyNet/lemmy-translations/archive/26962b1755f6c7b61d4e16e097ce109c3932c034.tar.gz"
+    sha256 = "7311dfc95baccfa4dcfb8cd2ec00fd472d40e9a71b1e0d129a6e900ba909b0b7"
+    autoupdate.upstream = "https://github.com/LemmyNet/lemmy-translations/"
+    autoupdate.strategy = "latest_github_commit"
+
+    [resources.system_user]
+    allow_email = true
+
+    [resources.install_dir]
+
+    [resources.data_dir]
+    subdirs = ["pictrs-data", "sled", "exports", "magick"]
+
+    [resources.permissions]
+    main.url = "/"
+
+    pictrs.url = "/pictrs"
+    pictrs.allowed = "visitors"
+    pictrs.show_tile = false
+    pictrs.protected = true
+    
+    api.url = "/api"
+    api.allowed = "visitors"
+    api.auth_header = false
+    api.show_tile = false
+    api.protected = true
+
+    inbox.url = "/inbox"
+    inbox.allowed = "visitors"
+    inbox.auth_header = false
+    inbox.show_tile = false
+    inbox.protected = true
+
+    [resources.ports]
+    main.default = 8536
+    pictrs.default = 8080
+    ui.default = 1235
+
+    [resources.apt]
+    packages = "postgresql, espeak, rsync, libfuse2, libimage-exiftool-perl, ffmpeg"
+
+    [resources.database]
+    type = "postgresql"
+
+    [resources.nodejs]
+    version = "20"
