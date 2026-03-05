@@ -57,19 +57,20 @@ ram.runtime = "197M"
     format = "docker"
     extract = true
     prefetch = false
-    #amd64.url = "dessalines/lemmy:0.19.11"
-    #amd64.sha256 = "88dcd645150a33d42327650c2d08f87376d1c8f36c2e1865c917144c96b72147"
-    #arm64.url = "dessalines/lemmy:0.19.11"
-    #arm64.sha256 = "c4d4af08b1a0d1beda0b5d48ad384bfd49c8a1b87e7ba1ca486cd11dde659d62"
+    amd64.url = "dessalines/lemmy:0.19.16
+    amd64.sha256 = "-"
+    amd64.url = "dessalines/lemmy:0.19.16"
+    amd64.sha256 = "-"
+
 
     [resources.sources.lemmy-ui]
     format = "docker"
     extract = true
     prefetch = false
-    #amd64.url = "dessalines/lemmy-ui:0.19.11"
-    #amd64.sha256 = "0659553273eda7b41395e0877fcba54a8f85ab4be8a402eb463d115113f580b6"
-    #arm64.url = "dessalines/lemmy-ui:0.19.11"
-    #arm64.sha256 = "555d73f78065d0c56796b9bccf24ff7106f44520244f50021edc8713ac770b73"
+    amd64.url = "dessalines/lemmy-ui:0.19.15"
+    amd64.sha256 = "-"
+    arm64.url = "dessalines/lemmy-ui:0.19.15"
+    arm64.sha256 = "-"
 
     [resources.sources.pict-rs]
     format = "docker"
