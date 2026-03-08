@@ -76,10 +76,10 @@ ram.runtime = "197M"
     format = "docker"
     extract = true
     prefetch = false
-    amd64.url = "asonix/pictrs:0.5.17"
-    amd64.sha256 = "6536411492107baa1146fe577bd33c7f56c52baa323e38bae5c6e61806c7b09b"
-    arm64.url = "asonix/pictrs:0.5.17"
-    arm64.sha256 = "f143ec57573d1bf70ca7dbcdb30f63c4a0f24e91974a767a36189b83f0e0a43e"
+    amd64.url = "asonix/pictrs:0.6.0-rc.4"
+    amd64.sha256 = "c07808928447d6bb2f9e504d9b565d85d2d2fd6e137b7da7300e4050bb7a1722"
+    arm64.url = "asonix/pictrs:0.6.0-rc.4"
+    arm64.sha256 = "7960a0403e56400c0b03a5f234b345e8ade18a69eaaeaceaadb773f3c205635e"
 
     [resources.sources.lemmy-translations]
     url = "https://github.com/LemmyNet/lemmy-translations/archive/26962b1755f6c7b61d4e16e097ce109c3932c034.tar.gz"
